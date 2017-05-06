@@ -150,10 +150,10 @@ export function run({
   new SubscriptionServer(
     {
       schema,
-      handler: subscribe,
-      executor: { execute },
+      subscribe,
+      execute,
 
-      // the onSubscribe function is called for every new subscription
+      // the onRequest function is called for every new subscription
       // and we use it to set the GraphQL context for this subscription
       onRequest: (msg, params, socket) => {
         return new Promise((resolve) => {
