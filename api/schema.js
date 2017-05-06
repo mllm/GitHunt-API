@@ -4,6 +4,7 @@ import { makeExecutableSchema } from 'graphql-tools';
 import { schema as gitHubSchema, resolvers as gitHubResolvers } from './github/schema';
 import { schema as sqlSchema, resolvers as sqlResolvers } from './sql/schema';
 import { pubsub } from './subscriptions';
+import { withFilter } from 'graphql-subscriptions';
 
 const rootSchema = [`
 
@@ -137,7 +138,8 @@ const rootResolvers = {
         .then(([id]) => context.Comments.getCommentById(id))
         .then((comment) => {
           // publish subscription notification
-          pubsub.publish('commentAdded', comment);
+          pubsub.publish('commentAdded', { commentAdded: comment });
+
           return comment;
         });
     },
@@ -163,9 +165,10 @@ const rootResolvers = {
     },
   },
   Subscription: {
-    commentAdded(comment) {
-      // the subscription payload is the comment.
-      return comment;
+    commentAdded: {
+      subscribe: withFilter(pubsub.asyncIterator('commentAdded'), (payload, args) => {
+        return payload.commentAdded.repository_name === args.repoFullName;
+      }),
     },
   },
 };

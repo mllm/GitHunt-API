@@ -9,6 +9,7 @@ import bodyParser from 'body-parser';
 import { invert, isString } from 'lodash';
 import { createServer } from 'http';
 import { SubscriptionServer } from 'subscriptions-transport-ws';
+import { subscribe, execute } from 'graphql';
 
 import {
   GITHUB_CLIENT_ID,
@@ -19,7 +20,6 @@ import { setUpGitHubLogin } from './githubLogin';
 import { GitHubConnector } from './github/connector';
 import { Repositories, Users } from './github/models';
 import { Entries, Comments } from './sql/models';
-import { graphqlExecutor } from './subscriptions';
 
 import schema from './schema';
 import queryMap from '../extracted_queries.json';
@@ -65,7 +65,7 @@ export function run({
   );
 
   const sessionStore = setUpGitHubLogin(app);
-  app.use(cookieParser('your secret'));
+  app.use(cookieParser(config.sessionStoreSecret));
 
   if (OPTICS_API_KEY) {
     app.use('/graphql', OpticsAgent.middleware());
@@ -150,35 +150,8 @@ export function run({
   new SubscriptionServer(
     {
       schema,
-      executor: graphqlExecutor,
-
-      /*
-      onConnect: (msg, connectionContext) => {
-        const socket = connectionContext.socket;
-
-        // We get req.user from passport-github with some pretty oddly named fields,
-        // let's convert that to the fields in our schema, which match the GitHub
-        // API field names.
-        if (socket.upgradeReq) {
-          // get sessionID
-
-          const cookies = cookie.parse(socket.upgradeReq.headers.cookie);
-          const sessionID = cookieParser.signedCookie(cookies['connect.sid'],
-          config.sessionStoreSecret);
-          // get the session object
-          sessionStore.get(sessionID, (err, session) => {
-            if (session && session.passport && session.passport.user) {
-              const sessionUser = session.passport.user;
-              wsSessionUser = {
-                login: sessionUser.username,
-                html_url: sessionUser.profileUrl,
-                avatar_url: sessionUser.photos[0].value,
-              };
-            }
-          });
-        }
-      },
-      */
+      handler: subscribe,
+      executor: { execute },
 
       // the onSubscribe function is called for every new subscription
       // and we use it to set the GraphQL context for this subscription
